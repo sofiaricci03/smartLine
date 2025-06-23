@@ -11,7 +11,7 @@
   <script>
     async function updateQueue() {
       try {
-        const res = await fetch("http://192.168.1.53:3000/status");
+        const res = await fetch("http://192.168.1.37:5000/status");
         const data = await res.json();
         document.getElementById("count").innerText = data.queue_length;
         document.getElementById("time").innerText = data.estimated_time;
