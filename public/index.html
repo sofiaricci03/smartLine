@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitor Coda</title>
+</head>
+<body>
+  <h1>Persone in coda: <span id="count">0</span></h1>
+  <h2>Tempo di attesa stimato: <span id="time">0</span> minuti</h2>
+
+  <script>
+    async function updateQueue() {
+      try {
+        const res = await fetch("http://192.168.1.53:3000/status");
+        const data = await res.json();
+        document.getElementById("count").innerText = data.queue_length;
+        document.getElementById("time").innerText = data.estimated_time;
+      } catch (err) {
+        console.error("Errore nella richiesta:", err);
+      }
+    }
+
+    setInterval(updateQueue, 5000); // aggiorna ogni 5s
+    updateQueue(); // prima chiamata subito
+  </script>
+</body>
+</html>
