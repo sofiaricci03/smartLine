@@ -2,26 +2,116 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <title>Monitor Coda</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard - Monitor Coda</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
-  <h1>Persone in coda: <span id="count">0</span></h1>
-  <h2>Tempo di attesa stimato: <span id="time">0</span> minuti</h2>
+
+  <header>
+    <img src="../assets/logosmartiline.png" alt="Logo" class="logo">
+    <h1>Dashboard Monitoraggio Coda</h1>
+    <p>Seleziona il supermercato per vedere lo stato della coda</p>
+    <div class="search-container">
+      <input type="text" id="search" placeholder="Cerca negozio...">
+    </div>
+  </header>
+
+  <div class="store-selection">
+    <button class="store-button" onclick="showStoreDetails(1)">Supermercato Alfa</button>
+    <button class="store-button" onclick="showStoreDetails(2)">Supermercato Beta</button>
+    <button class="store-button" onclick="showStoreDetails(3)">Supermercato Gamma</button>
+  </div>
+
+  <div id="storeDetails" style="display: none;">
+    <h2>Dettagli Coda per <span id="storeName">Supermercato</span></h2>
+    <div class="stat">Persone in coda: <span id="count">0</span></div>
+    <div class="stat">Tempo di attesa stimato: <span id="time">0</span> minuti</div>
+    <canvas id="queueChart" height="100"></canvas>
+  </div>
+
+  <footer>
+    SmartLine &copy; 2025 – Progetto universitario IoT by D&S.
+  </footer>
 
   <script>
-    async function updateQueue() {
-      try {
-        const res = await fetch("http://192.168.1.37:5000/status");
-        const data = await res.json();
-        document.getElementById("count").innerText = data.queue_length;
-        document.getElementById("time").innerText = data.estimated_time;
-      } catch (err) {
-        console.error("Errore nella richiesta:", err);
+    const ctx = document.getElementById("queueChart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Persone in Coda',
+          data: [],
+          backgroundColor: 'rgba(0, 191, 166, 0.2)',
+          borderColor: '#00bfa6',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: '#00bfa6'
+        }]
+      },
+      options: {
+        scales: {
+          x: { ticks: { color: '#777' } },
+          y: { beginAtZero: true, ticks: { color: '#777' } }
+        },
+        plugins: { legend: { labels: { color: '#555' } } }
       }
+    });
+
+    function showStoreDetails(storeId) {
+      document.getElementById("storeDetails").style.display = "block";
+      document.getElementById("storeName").innerText = "Supermercato " + storeId;
     }
 
-    setInterval(updateQueue, 5000); // aggiorna ogni 5s
-    updateQueue(); // prima chiamata subito
+    // Connessione MQTT
+    const client = mqtt.connect('wss://test.mosquitto.org:8081');
+    const topic = 'progetto/queue';
+
+    client.on('connect', () => {
+      console.log('🔌 Connesso al broker MQTT');
+      client.subscribe(topic, err => {
+        if (err) console.error('Errore nella sottoscrizione:', err);
+        else console.log(`Iscritto al topic: ${topic}`);
+      });
+    });
+
+    client.on('message', (topic, message) => {
+      console.log(`📩 Messaggio ricevuto su ${topic}: ${message.toString()}`);
+      try {
+        const data = JSON.parse(message.toString());
+        const queueLength = data.queue_length ?? data.people ?? 0;
+        const estimatedTime = data.estimated_time ?? (queueLength * 2);
+
+        document.getElementById("count").innerText = queueLength;
+        document.getElementById("time").innerText = estimatedTime;
+
+        const now = new Date();
+        const timeLabel = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+
+        if (chart.data.labels.length >= 10) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
+        }
+
+        chart.data.labels.push(timeLabel);
+        chart.data.datasets[0].data.push(queueLength);
+        chart.update();
+
+      } catch (e) {
+        console.error("❌ Errore nel parsing MQTT:", e);
+      }
+    });
+
+    client.on('error', err => {
+      console.error('❌ Errore di connessione:', err.message);
+    });
+
   </script>
 </body>
 </html>

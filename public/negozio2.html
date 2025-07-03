@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Negozio 1 - Monitor Coda</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <img src="../assets/logosmartiline.png" alt="Logo" class="logo">
+        <h1>Supermercato Beta - Stato della Coda</h1>
+    </header>
+
+    <main>
+        <div class="stat">Persone in coda: <span id="count">0</span></div>
+        <div class="stat">Tempo di attesa stimato: <span id="time">0</span> minuti</div>
+        <canvas id="queueChart" height="100"></canvas>
+    </main>
+
+    <footer>
+        SmartLine &copy; 2025 – Progetto universitario IoT
+    </footer>
+
+    <script>
+    const ctx = document.getElementById("queueChart").getContext("2d");
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+            label: 'Persone in Coda',
+            data: [],
+            backgroundColor: 'rgba(0, 191, 166, 0.2)',
+            borderColor: '#00bfa6',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointBackgroundColor: '#00bfa6'
+            }]
+        },
+        options: {
+            scales: {
+            x: { ticks: { color: '#777' } },
+            y: { beginAtZero: true, ticks: { color: '#777' } }
+            },
+            plugins: {
+            legend: { labels: { color: '#555' } }
+            }
+        }
+        });
+
+        async function updateData() {
+        try {
+            const res = await fetch("http://192.168.1.37:5000/status/1"); // cambia per negozio 2 o 3
+            const data = await res.json();
+            const now = new Date();
+            const timeLabel = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+
+            document.getElementById("count").innerText = data.queue_length;
+            document.getElementById("time").innerText = data.estimated_time;
+
+            if (chart.data.labels.length >= 10) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+            }
+
+            chart.data.labels.push(timeLabel);
+            chart.data.datasets[0].data.push(data.queue_length);
+            chart.update();
+        } catch (err) {
+            console.error("Errore nel recupero dati:", err);
+        }
+        }
+
+        setInterval(updateData, 5000);
+        updateData();
+    </script>
+</body>
+</html>

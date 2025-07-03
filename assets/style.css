@@ -1,0 +1,91 @@
+body {
+    margin: 0;
+    background-color: #fdfdfb;
+    font-family: 'Rubik', sans-serif;
+    color: #333;
+}
+
+header {
+    background-color: #00bfa6;
+    color: white;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+}
+
+h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.logo {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    width: 150px;
+}
+
+main {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+
+.stat {
+    font-size: 1.5rem;
+    margin: 1rem 0;
+}
+    /* Barra di ricerca */
+.search-container {
+    margin-top: 1rem;
+}
+
+input[type="text"] {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 300px;
+    margin-top: 0.5rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Contenitore dei negozi */
+.store-selection {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+
+.store-button {
+    background-color: #00bfa6;
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.25rem;
+    margin: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.store-button:hover {
+    background-color: #009b87;
+}
+
+footer {
+    text-align: center;
+    font-size: 0.9rem;
+    padding: 1rem;
+    color: #999;
+}
