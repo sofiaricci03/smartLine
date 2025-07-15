@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Famila TdM - Stato Coda</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <header>
+        <img src="../assets/logosmartiline.png" alt="Logo" class="logo" />
+        <h1>Famila Torre del Moro – Stato della Coda</h1>
+    </header>
+
+    <main>
+        <div class="stat">Persone in coda: <span id="count">0</span></div>
+        <div class="stat">Tempo stimato: <span id="time">0</span> minuti</div>
+
+        <h3>Andamento storico della coda</h3>
+        <canvas id="queueChart" height="100"></canvas>
+
+        <h3>Stato casse (persone in fila per cassa)</h3>
+        <canvas id="cashChart" height="150"></canvas>
+    </main>
+
+    <footer>
+        SmartLine &copy; 2025 – Progetto universitario IoT
+    </footer>
+
+    <script>
+        // Impostazione MQTT
+        const mqttBroker = 'wss://broker.hivemq.com:8000/mqtt'; // WebSocket broker pubblico Mosquitto
+        const topic = 'progetto/famila_tdm';
+        const client = mqtt.connect(mqttBroker);
+
+        const queueCtx = document.getElementById('queueChart').getContext('2d');
+        const cashCtx = document.getElementById('cashChart').getContext('2d');
+
+        // Crea il grafico per la coda
+        const queueChart = new Chart(queueCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Persone in Coda',
+                    data: [],
+                    backgroundColor: 'rgba(0,191,166,0.2)',
+                    borderColor: '#00bfa6',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#00bfa6'
+                }]
+            },
+            options: {
+                scales: {
+                    x: { ticks: { color: '#555' } },
+                    y: { beginAtZero: true, ticks: { color: '#555' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#333' } }
+                }
+            }
+        });
+
+        // Crea il grafico per le casse
+        const cashChart = new Chart(cashCtx, {
+            type: 'bar',
+            data: {
+                labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+                datasets: [{
+                    label: 'Persone in fila',
+                    data: Array(10).fill(0),
+                    backgroundColor: '#00bfa6'
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
+                    y: { ticks: { color: '#444' } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        client.on('connect', () => {
+            console.log('MQTT connesso');
+            client.subscribe(topic, (err) => {
+                if (err) console.error('Errore nella sottoscrizione:', err);
+                else console.log(`📡 Sottoscritto al topic ${topic}`);
+            });
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                console.log("Messaggio ricevuto:", data);
+
+                // Differenzia i dati per ciascun negozio
+                if (topic === "progetto/famila_tdm") {
+                    updateStoreData('Famila TdM', data);
+                } else if (topic === "progetto/conad_montefiore") {
+                    updateStoreData('Conad Montefiore', data);
+                } else if (topic === "progetto/famila_gambettola") {
+                    updateStoreData('Famila Gambettola', data);
+                }
+            } catch (e) {
+                console.error("Errore nel parsing:", e);
+            }
+        });
+
+        // Funzione per aggiornare i dati nel grafico
+        function updateStoreData(storeName, data) {
+            const queueLength = data.queue_length || 0;
+            const estimatedTime = data.estimated_time || 0;
+            const casse = data.casse || [];
+
+            // Aggiorna il numero di persone in coda
+            document.getElementById('count').textContent = queueLength;
+            document.getElementById('time').textContent = estimatedTime;
+
+            // Aggiorna il grafico della coda
+            const now = new Date();
+            const label = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+            if (queueChart.data.labels.length >= 10) {
+                queueChart.data.labels.shift();
+                queueChart.data.datasets[0].data.shift();
+            }
+            queueChart.data.labels.push(label);
+            queueChart.data.datasets[0].data.push(queueLength);
+            queueChart.update();
+
+            // Aggiorna il grafico delle casse
+            if (casse.length === 10) {
+                cashChart.data.datasets[0].data = casse;
+                cashChart.update();
+            }
+
+            console.log(`Grafici aggiornati per ${storeName}:`, data);
+        }
+
+        client.on('error', err => {
+            console.error('MQTT error:', err.message);
+        });
+    </script>
+</body>
+</html>

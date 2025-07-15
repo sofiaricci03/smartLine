@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Conad Montefiore - Stato Coda</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+    <header>
+        <img src="../assets/logosmartiline.png" alt="Logo" class="logo" />
+        <h1>Conad Montefiore – Stato della Coda</h1>
+    </header>
+
+    <main>
+        <div class="stat">Persone in coda: <span id="count">0</span></div>
+        <div class="stat">Tempo stimato: <span id="time">0</span> minuti</div>
+
+        <h3>Andamento storico della coda</h3>
+        <canvas id="queueChart" height="100"></canvas>
+
+        <h3>Stato casse (persone in fila per cassa)</h3>
+        <canvas id="cashChart" height="150"></canvas>
+    </main>
+
+    <footer>
+        SmartLine &copy; 2025 – Progetto universitario IoT
+    </footer>
+
+    <script>
+        const mqttBroker = 'wss://broker.hivemq.com:8000/mqtt';
+        const topic = 'progetto/conad_montefiore';
+        const storageKey = 'queueHistory_conad_montefiore';
+
+        const client = mqtt.connect(mqttBroker);
+        const queueCtx = document.getElementById('queueChart').getContext('2d');
+        const cashCtx = document.getElementById('cashChart').getContext('2d');
+
+        const queueChart = new Chart(queueCtx, {
+        type: 'line',
+        data: { labels: [], datasets: [{
+            label: 'Persone in Coda',
+            data: [],
+            backgroundColor: 'rgba(0,191,166,0.2)',
+            borderColor: '#00bfa6',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointBackgroundColor: '#00bfa6'
+        }] },
+        options: {
+            scales: { x: { ticks: { color: '#555' } }, y: { beginAtZero: true, ticks: { color: '#555' } } },
+            plugins: { legend: { labels: { color: '#333' } } }
+        }
+        });
+
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            queueChart.data.labels = parsed.labels;
+            queueChart.data.datasets[0].data = parsed.data;
+            queueChart.update();
+        } catch {}
+        }
+
+        const cashChart = new Chart(cashCtx, {
+        type: 'bar',
+        data: {
+            labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+            datasets: [{ label: 'Persone in fila', data: Array(10).fill(0), backgroundColor: '#00bfa6' }]
+        },
+        options: {
+            indexAxis: 'y',
+            scales: {
+            x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
+            y: { ticks: { color: '#444' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+        });
+
+        client.on('connect', () => {
+        client.subscribe(topic);
+        });
+
+        client.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+            const queueLength = data.queue_length || 0;
+            const estimatedTime = data.estimated_time || 0;
+            const casse = data.casse || [];
+
+            document.getElementById('count').textContent = queueLength;
+            document.getElementById('time').textContent = estimatedTime;
+
+            const now = new Date();
+            const label = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+            if (queueChart.data.labels.length >= 10) {
+            queueChart.data.labels.shift();
+            queueChart.data.datasets[0].data.shift();
+            }
+            queueChart.data.labels.push(label);
+            queueChart.data.datasets[0].data.push(queueLength);
+            queueChart.update();
+
+            localStorage.setItem(storageKey, JSON.stringify({
+            labels: queueChart.data.labels,
+            data: queueChart.data.datasets[0].data
+            }));
+
+            if (casse.length === 10) {
+            cashChart.data.datasets[0].data = casse;
+            cashChart.update();
+            }
+        } catch (e) {
+            console.error("Errore parsing:", e);
+        }
+        });
+    </script>
+</body>
+</html>

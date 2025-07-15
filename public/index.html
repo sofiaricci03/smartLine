@@ -1,117 +1,41 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard - Monitor Coda</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SmartLine Dashboard</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <header>
+        <img src="../assets/logosmartiline.png" alt="SmartLine Logo" class="logo" />
+        <h1>SmartLine - Monitoraggio Code in Tempo Reale</h1>
+        <p>Seleziona un punto vendita per vedere i dati in tempo reale</p>
+    </header>
 
-  <header>
-    <img src="../assets/logosmartiline.png" alt="Logo" class="logo">
-    <h1>Dashboard Monitoraggio Coda</h1>
-    <p>Seleziona il supermercato per vedere lo stato della coda</p>
-    <div class="search-container">
-      <input type="text" id="search" placeholder="Cerca negozio...">
-    </div>
-  </header>
+    <main class="store-grid">
+        <!-- Card per Conad Montefiore -->
+        <div class="store-card" onclick="window.location.href='conad_montefiore.html'">
+            <img src="../assets/conad.png" alt="Conad Montefiore" />
+            <h2>Conad Montefiore</h2>
+        </div>
 
-  <div class="store-selection">
-    <button class="store-button" onclick="showStoreDetails(1)">Supermercato Alfa</button>
-    <button class="store-button" onclick="showStoreDetails(2)">Supermercato Beta</button>
-    <button class="store-button" onclick="showStoreDetails(3)">Supermercato Gamma</button>
-  </div>
+        <!-- Card per Famila TdM -->
+        <div class="store-card" onclick="window.location.href='famila_tdm.html'">
+            <img src="../assets/famila.png" alt="Famila TdM" />
+            <h2>Famila TdM</h2>
+        </div>
 
-  <div id="storeDetails" style="display: none;">
-    <h2>Dettagli Coda per <span id="storeName">Supermercato</span></h2>
-    <div class="stat">Persone in coda: <span id="count">0</span></div>
-    <div class="stat">Tempo di attesa stimato: <span id="time">0</span> minuti</div>
-    <canvas id="queueChart" height="100"></canvas>
-  </div>
+        <!-- Card per Famila Gambettola -->
+        <div class="store-card" onclick="window.location.href='famila_gambettola.html'">
+            <img src="../assets/famila.png" alt="Famila Gambettola" />
+            <h2>Famila Gambettola</h2>
+        </div>
+    </main>
 
-  <footer>
-    SmartLine &copy; 2025 – Progetto universitario IoT by D&S.
-  </footer>
-
-  <script>
-    const ctx = document.getElementById("queueChart").getContext("2d");
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Persone in Coda',
-          data: [],
-          backgroundColor: 'rgba(0, 191, 166, 0.2)',
-          borderColor: '#00bfa6',
-          borderWidth: 2,
-          tension: 0.3,
-          fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: '#00bfa6'
-        }]
-      },
-      options: {
-        scales: {
-          x: { ticks: { color: '#777' } },
-          y: { beginAtZero: true, ticks: { color: '#777' } }
-        },
-        plugins: { legend: { labels: { color: '#555' } } }
-      }
-    });
-
-    function showStoreDetails(storeId) {
-      document.getElementById("storeDetails").style.display = "block";
-      document.getElementById("storeName").innerText = "Supermercato " + storeId;
-    }
-
-    // Connessione MQTT
-    const client = mqtt.connect('wss://test.mosquitto.org:8081');
-    const topic = 'progetto/queue';
-
-    client.on('connect', () => {
-      console.log('🔌 Connesso al broker MQTT');
-      client.subscribe(topic, err => {
-        if (err) console.error('Errore nella sottoscrizione:', err);
-        else console.log(`Iscritto al topic: ${topic}`);
-      });
-    });
-
-    client.on('message', (topic, message) => {
-      console.log(`📩 Messaggio ricevuto su ${topic}: ${message.toString()}`);
-      try {
-        const data = JSON.parse(message.toString());
-        const queueLength = data.queue_length ?? data.people ?? 0;
-        const estimatedTime = data.estimated_time ?? (queueLength * 2);
-
-        document.getElementById("count").innerText = queueLength;
-        document.getElementById("time").innerText = estimatedTime;
-
-        const now = new Date();
-        const timeLabel = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
-
-        if (chart.data.labels.length >= 10) {
-          chart.data.labels.shift();
-          chart.data.datasets[0].data.shift();
-        }
-
-        chart.data.labels.push(timeLabel);
-        chart.data.datasets[0].data.push(queueLength);
-        chart.update();
-
-      } catch (e) {
-        console.error("❌ Errore nel parsing MQTT:", e);
-      }
-    });
-
-    client.on('error', err => {
-      console.error('❌ Errore di connessione:', err.message);
-    });
-
-  </script>
+    <footer>
+        SmartLine &copy; 2025 – Progetto universitario IoT by D&S
+    </footer>
 </body>
 </html>
