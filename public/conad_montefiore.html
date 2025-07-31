@@ -30,7 +30,7 @@
     </footer>
 
     <script>
-        const mqttBroker = 'wss://broker.hivemq.com:8000/mqtt';
+        const mqttBroker = 'wss://broker.hivemq.com:8081/mqtt';
         const topic = 'progetto/conad_montefiore';
         const storageKey = 'queueHistory_conad_montefiore';
 
@@ -120,6 +120,23 @@
             console.error("Errore parsing:", e);
         }
         });
+
+    const ws = new WebSocket('ws://localhost:3000');
+
+    ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    console.log("Messaggio WebSocket:", msg);
+
+    const { topic, data } = msg;
+
+    //aggiorna il topic conad_montefiore
+    if (topic === 'progetto/conad_montefiore') {
+        const payload = JSON.parse(data);
+        document.getElementById('count').textContent = payload.queue_length;
+        document.getElementById('time').textContent = payload.estimated_time;
+        // Aggiorna i grafici come hai già fatto...
+        }
+    };
     </script>
 </body>
 </html>

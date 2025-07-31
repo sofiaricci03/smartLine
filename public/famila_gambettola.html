@@ -120,6 +120,22 @@
             console.error("Errore parsing:", e);
         }
         });
+
+    const ws = new WebSocket('ws://localhost:3000');
+
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        console.log("Messaggio WebSocket:", msg);
+
+        const { topic, data } = msg;
+
+        if (topic === 'progetto/famila_gambettola') {
+        const payload = JSON.parse(data);
+        document.getElementById('count').textContent = payload.queue_length;
+        document.getElementById('time').textContent = payload.estimated_time;
+        // Aggiorna i grafici come hai già fatto...
+        }
+    };
     </script>
 </body>
 </html>

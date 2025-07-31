@@ -7,12 +7,21 @@
     "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "TDianaAle",
   "license": "ISC",
-  "description": "",
+  "description": "Wokwi frst try\r https://wokwi.com/projects/434297235363032065",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "mqtt": "^5.13.1"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sofiaricci03/smartLine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sofiaricci03/smartLine/issues"
+  },
+  "homepage": "https://github.com/sofiaricci03/smartLine#readme"
 }

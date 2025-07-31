@@ -1,10 +1,16 @@
+const express = require('express');
+const cors = require('cors');
 const mqtt = require('mqtt');
+const path = require('path');
+const WebSocket = require('ws');
 
-// Connessione al broker pubblico oppure installare mosquitto per localhost con mqtt
-const brokerUrl = 'mqtt://test.mosquitto.org';
+const app = express();
+const PORT = 3000;
+
+// === MQTT SETUP ===
+const brokerUrl = 'mqtt://broker.hivemq.com';
 const client = mqtt.connect(brokerUrl);
 
-// Array di topic per ogni punto vendita
 const topics = [
     'progetto/famila_tdm',
     'progetto/conad_montefiore',
@@ -12,42 +18,54 @@ const topics = [
 ];
 
 client.on('connect', () => {
-    console.log('Connesso al broker MQTT pubblico');
+    console.log('✅ Connesso al broker MQTT pubblico');
 
-    // Iscrizione a tutti i topic
     topics.forEach(topic => {
         client.subscribe(topic, (err) => {
-            if (!err) {
-                console.log(`Iscritto al topic: ${topic}`);
-            } else {
-                console.error(`Errore nella sottoscrizione a ${topic}:`, err.message);
-            }
+        if (!err) {
+            console.log(`📡 Iscritto al topic: ${topic}`);
+        } else {
+            console.error(`❌ Errore nella sottoscrizione a ${topic}:`, err.message);
+        }
         });
     });
-
-    // ora pubblica i dati casuali su ogni topic, non più solo queue
-    setInterval(() => {
-        topics.forEach(topic => {
-            const payload = {
-                timestamp: new Date().toISOString(),
-                queue_length: Math.floor(Math.random() * 20) + 1,
-                estimated_time: Math.floor(Math.random() * 10) + 1,
-                casse: Array.from({ length: 10 }, () => Math.floor(Math.random() * 6)) // 10 casse con 0-5 persone
-            };
-
-            const json = JSON.stringify(payload);
-            client.publish(topic, json);
-            console.log(` Pubblicato su ${topic}: ${json}`);
-        });
-    }, 5000);
 });
 
-// Quando riceve un messaggio
+// === EXPRESS STATIC SETUP ===
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public'))); // serve i file HTML/CSS/JS
+
+const server = app.listen(PORT, () => {
+    console.log(`🚀 Server web in esecuzione su http://localhost:${PORT}`);
+});
+
+// === WEBSOCKET SERVER ===
+const wss = new WebSocket.Server({ server });
+const clients = new Set(); // per tenere traccia dei client connessi
+
+wss.on('connection', (ws) => {
+    console.log('🔌 Nuova connessione WebSocket');
+    clients.add(ws);
+
+    ws.on('close', () => {
+        clients.delete(ws);
+        console.log('❎ Connessione WebSocket chiusa');
+    });
+});
+
+// === FORWARD MQTT MESSAGES TO WEB CLIENTS ===
 client.on('message', (topic, message) => {
-    console.log(`Ricevuto su ${topic}: ${message.toString()}`);
-});
+    const payload = {
+        topic,
+        data: message.toString()
+    };
 
-// Gestione errori
-client.on('error', (err) => {
-    console.error('Errore nella connessione MQTT:', err.message);
+    console.log(`📥 Ricevuto su ${topic}: ${payload.data}`);
+
+    // Inoltra il messaggio a tutti i client WebSocket connessi
+    clients.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+        }
+    });
 });
