@@ -6,7 +6,6 @@
     <title>Famila Gambettola - Stato Coda</title>
     <link rel="stylesheet" href="../assets/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
     <header>
@@ -30,112 +29,127 @@
     </footer>
 
     <script>
-        const mqttBroker = 'wss://broker.hivemq.com:8000/mqtt';
         const topic = 'progetto/famila_gambettola';
         const storageKey = 'queueHistory_famila_gambettola';
 
-        const client = mqtt.connect(mqttBroker);
         const queueCtx = document.getElementById('queueChart').getContext('2d');
         const cashCtx = document.getElementById('cashChart').getContext('2d');
 
+        // Grafico storico code
         const queueChart = new Chart(queueCtx, {
-        type: 'line',
-        data: { labels: [], datasets: [{
-            label: 'Persone in Coda',
-            data: [],
-            backgroundColor: 'rgba(0,191,166,0.2)',
-            borderColor: '#00bfa6',
-            borderWidth: 2,
-            tension: 0.3,
-            fill: true,
-            pointRadius: 3,
-            pointBackgroundColor: '#00bfa6'
-        }] },
-        options: {
-            scales: { x: { ticks: { color: '#555' } }, y: { beginAtZero: true, ticks: { color: '#555' } } },
-            plugins: { legend: { labels: { color: '#333' } } }
-        }
+            type: 'line',
+            data: { labels: [], datasets: [{
+                label: 'Persone in Coda',
+                data: [],
+                backgroundColor: 'rgba(0,191,166,0.2)',
+                borderColor: '#00bfa6',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3,
+                pointBackgroundColor: '#00bfa6'
+            }] },
+            options: {
+                scales: { 
+                    x: { ticks: { color: '#555' } }, 
+                    y: { beginAtZero: true, ticks: { color: '#555' } } 
+                },
+                plugins: { legend: { labels: { color: '#333' } } }
+            }
         });
 
+        // Carica eventuale storico dal localStorage
         const saved = localStorage.getItem(storageKey);
         if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            queueChart.data.labels = parsed.labels;
-            queueChart.data.datasets[0].data = parsed.data;
-            queueChart.update();
-        } catch {}
+            try {
+                const parsed = JSON.parse(saved);
+                queueChart.data.labels = parsed.labels;
+                queueChart.data.datasets[0].data = parsed.data;
+                queueChart.update();
+            } catch (e) {
+                console.error('Errore caricamento storico:', e);
+            }
         }
 
+        // Grafico stato casse (10 casse come nel firmware)
         const cashChart = new Chart(cashCtx, {
-        type: 'bar',
-        data: {
-            labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
-            datasets: [{ label: 'Persone in fila', data: Array(10).fill(0), backgroundColor: '#00bfa6' }]
-        },
-        options: {
-            indexAxis: 'y',
-            scales: {
-            x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
-            y: { ticks: { color: '#444' } }
+            type: 'bar',
+            data: {
+                labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+                datasets: [{ 
+                    label: 'Persone in fila', 
+                    data: Array(10).fill(0), 
+                    backgroundColor: '#00bfa6' 
+                }]
             },
-            plugins: { legend: { display: false } }
-        }
-        });
-
-        client.on('connect', () => {
-        client.subscribe(topic);
-        });
-
-        client.on('message', (topic, message) => {
-        try {
-            const data = JSON.parse(message.toString());
-            const queueLength = data.queue_length || 0;
-            const estimatedTime = data.estimated_time || 0;
-            const casse = data.casse || [];
-
-            document.getElementById('count').textContent = queueLength;
-            document.getElementById('time').textContent = estimatedTime;
-
-            const now = new Date();
-            const label = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-            if (queueChart.data.labels.length >= 10) {
-            queueChart.data.labels.shift();
-            queueChart.data.datasets[0].data.shift();
+            options: {
+                indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
+                    y: { ticks: { color: '#444' } }
+                },
+                plugins: { legend: { display: false } }
             }
-            queueChart.data.labels.push(label);
-            queueChart.data.datasets[0].data.push(queueLength);
-            queueChart.update();
-
-            localStorage.setItem(storageKey, JSON.stringify({
-            labels: queueChart.data.labels,
-            data: queueChart.data.datasets[0].data
-            }));
-
-            if (casse.length === 10) {
-            cashChart.data.datasets[0].data = casse;
-            cashChart.update();
-            }
-        } catch (e) {
-            console.error("Errore parsing:", e);
-        }
         });
 
-    const ws = new WebSocket('ws://localhost:3000');
+        // WebSocket per ricevere dati in tempo reale
+        const ws = new WebSocket('ws://localhost:3000');
 
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        console.log("Messaggio WebSocket:", msg);
+        ws.onopen = () => {
+            console.log('✅ WebSocket connesso');
+        };
 
-        const { topic, data } = msg;
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                console.log("📥 Messaggio WebSocket ricevuto:", msg);
 
-        if (topic === 'progetto/famila_gambettola') {
-        const payload = JSON.parse(data);
-        document.getElementById('count').textContent = payload.queue_length;
-        document.getElementById('time').textContent = payload.estimated_time;
-        // Aggiorna i grafici come hai già fatto...
-        }
-    };
+                const { topic: msgTopic, data } = msg;
+
+                if (msgTopic === topic) {
+                    const payload = JSON.parse(data);
+                    
+                    // Aggiorna contatori
+                    document.getElementById('count').textContent = payload.queue_length || 0;
+                    document.getElementById('time').textContent = payload.estimated_time || 0;
+
+                    // Aggiorna grafico storico coda
+                    const now = new Date();
+                    const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                    if (queueChart.data.labels.length >= 10) {
+                        queueChart.data.labels.shift();
+                        queueChart.data.datasets[0].data.shift();
+                    }
+
+                    queueChart.data.labels.push(timeLabel);
+                    queueChart.data.datasets[0].data.push(payload.queue_length || 0);
+                    queueChart.update();
+
+                    // Salva storico
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        labels: queueChart.data.labels,
+                        data: queueChart.data.datasets[0].data
+                    }));
+
+                    // Aggiorna stato casse (10 casse come previsto)
+                    if (Array.isArray(payload.casse) && payload.casse.length === 10) {
+                        cashChart.data.datasets[0].data = payload.casse;
+                        cashChart.update();
+                    }
+                }
+            } catch (e) {
+                console.error("❌ Errore parsing:", e);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('❌ Errore WebSocket:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('❎ WebSocket disconnesso');
+        };
     </script>
 </body>
 </html>

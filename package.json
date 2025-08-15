@@ -1,21 +1,22 @@
 {
   "name": "smartline",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "mqtt-server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node mqtt-server.js",
+    "dev": "node mqtt-server.js"
   },
   "keywords": [],
   "author": "TDianaAle",
   "license": "ISC",
-  "description": "Wokwi frst try\r https://wokwi.com/projects/434297235363032065",
+  "description": "Wokwi first try\r https://wokwi.com/projects/434297235363032065",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "mqtt": "^5.13.1"
+    "mqtt": "^5.13.1",
+    "ws": "^8.18.3"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sofiaricci03/smartLine.git"

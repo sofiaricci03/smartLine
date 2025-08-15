@@ -8,7 +8,7 @@ const app = express();
 const PORT = 3000;
 
 // === MQTT SETUP ===
-const brokerUrl = 'mqtt://broker.hivemq.com';
+const brokerUrl = 'mqtt://broker.hivemq.com:1883'; // Porta corretta per MQTT
 const client = mqtt.connect(brokerUrl);
 
 const topics = [
@@ -22,18 +22,19 @@ client.on('connect', () => {
 
     topics.forEach(topic => {
         client.subscribe(topic, (err) => {
-        if (!err) {
-            console.log(`📡 Iscritto al topic: ${topic}`);
-        } else {
-            console.error(`❌ Errore nella sottoscrizione a ${topic}:`, err.message);
-        }
+            if (!err) {
+                console.log(`📡 Iscritto al topic: ${topic}`);
+            } else {
+                console.error(`❌ Errore nella sottoscrizione a ${topic}:`, err.message);
+            }
         });
     });
 });
 
 // === EXPRESS STATIC SETUP ===
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'public'))); // serve i file HTML/CSS/JS
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(path.join(__dirname, 'assets'))); // Serve anche gli assets
 
 const server = app.listen(PORT, () => {
     console.log(`🚀 Server web in esecuzione su http://localhost:${PORT}`);
@@ -41,7 +42,7 @@ const server = app.listen(PORT, () => {
 
 // === WEBSOCKET SERVER ===
 const wss = new WebSocket.Server({ server });
-const clients = new Set(); // per tenere traccia dei client connessi
+const clients = new Set();
 
 wss.on('connection', (ws) => {
     console.log('🔌 Nuova connessione WebSocket');
@@ -50,6 +51,11 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         clients.delete(ws);
         console.log('❎ Connessione WebSocket chiusa');
+    });
+
+    ws.on('error', (error) => {
+        console.error('❌ Errore WebSocket:', error);
+        clients.delete(ws);
     });
 });
 
@@ -65,7 +71,20 @@ client.on('message', (topic, message) => {
     // Inoltra il messaggio a tutti i client WebSocket connessi
     clients.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(payload));
+            try {
+                ws.send(JSON.stringify(payload));
+            } catch (error) {
+                console.error('❌ Errore invio WebSocket:', error);
+                clients.delete(ws);
+            }
         }
     });
+});
+
+client.on('error', (error) => {
+    console.error('❌ Errore MQTT:', error);
+});
+
+client.on('disconnect', () => {
+    console.log('❎ Disconnesso dal broker MQTT');
 });

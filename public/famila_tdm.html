@@ -6,7 +6,6 @@
     <title>Famila TdM - Stato Coda</title>
     <link rel="stylesheet" href="../assets/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
     <header>
@@ -30,51 +29,57 @@
     </footer>
 
     <script>
-        // Impostazione MQTT
-        const mqttBroker = 'wss://broker.hivemq.com:8000/mqtt'; // WebSocket broker pubblico Mosquitto
         const topic = 'progetto/famila_tdm';
-        const client = mqtt.connect(mqttBroker);
+        const storageKey = 'queueHistory_famila_tdm';
 
         const queueCtx = document.getElementById('queueChart').getContext('2d');
         const cashCtx = document.getElementById('cashChart').getContext('2d');
 
-        // Crea il grafico per la coda
+        // Grafico storico code
         const queueChart = new Chart(queueCtx, {
             type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Persone in Coda',
-                    data: [],
-                    backgroundColor: 'rgba(0,191,166,0.2)',
-                    borderColor: '#00bfa6',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#00bfa6'
-                }]
-            },
+            data: { labels: [], datasets: [{
+                label: 'Persone in Coda',
+                data: [],
+                backgroundColor: 'rgba(0,191,166,0.2)',
+                borderColor: '#00bfa6',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3,
+                pointBackgroundColor: '#00bfa6'
+            }] },
             options: {
-                scales: {
-                    x: { ticks: { color: '#555' } },
-                    y: { beginAtZero: true, ticks: { color: '#555' } }
+                scales: { 
+                    x: { ticks: { color: '#555' } }, 
+                    y: { beginAtZero: true, ticks: { color: '#555' } } 
                 },
-                plugins: {
-                    legend: { labels: { color: '#333' } }
-                }
+                plugins: { legend: { labels: { color: '#333' } } }
             }
         });
 
-        // Crea il grafico per le casse
+        // Carica eventuale storico dal localStorage
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                queueChart.data.labels = parsed.labels;
+                queueChart.data.datasets[0].data = parsed.data;
+                queueChart.update();
+            } catch (e) {
+                console.error('Errore caricamento storico:', e);
+            }
+        }
+
+        // Grafico stato casse (10 casse come nel firmware)
         const cashChart = new Chart(cashCtx, {
             type: 'bar',
             data: {
                 labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
-                datasets: [{
-                    label: 'Persone in fila',
-                    data: Array(10).fill(0),
-                    backgroundColor: '#00bfa6'
+                datasets: [{ 
+                    label: 'Persone in fila', 
+                    data: Array(10).fill(0), 
+                    backgroundColor: '#00bfa6' 
                 }]
             },
             options: {
@@ -83,89 +88,68 @@
                     x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
                     y: { ticks: { color: '#444' } }
                 },
-                plugins: {
-                    legend: { display: false }
-                }
+                plugins: { legend: { display: false } }
             }
         });
 
-        client.on('connect', () => {
-            console.log('MQTT connesso');
-            client.subscribe(topic, (err) => {
-                if (err) console.error('Errore nella sottoscrizione:', err);
-                else console.log(`📡 Sottoscritto al topic ${topic}`);
-            });
-        });
+        // WebSocket per ricevere dati in tempo reale
+        const ws = new WebSocket('ws://localhost:3000');
 
-        client.on('message', (topic, message) => {
+        ws.onopen = () => {
+            console.log('✅ WebSocket connesso');
+        };
+
+        ws.onmessage = (event) => {
             try {
-                const data = JSON.parse(message.toString());
-                console.log("Messaggio ricevuto:", data);
+                const msg = JSON.parse(event.data);
+                console.log("📥 Messaggio WebSocket ricevuto:", msg);
 
-                // Differenzia i dati per ciascun negozio
-                if (topic === "progetto/famila_tdm") {
-                    updateStoreData('Famila TdM', data);
-                } else if (topic === "progetto/conad_montefiore") {
-                    updateStoreData('Conad Montefiore', data);
-                } else if (topic === "progetto/famila_gambettola") {
-                    updateStoreData('Famila Gambettola', data);
+                const { topic: msgTopic, data } = msg;
+
+                if (msgTopic === topic) {
+                    const payload = JSON.parse(data);
+                    
+                    // Aggiorna contatori
+                    document.getElementById('count').textContent = payload.queue_length || 0;
+                    document.getElementById('time').textContent = payload.estimated_time || 0;
+
+                    // Aggiorna grafico storico coda
+                    const now = new Date();
+                    const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                    if (queueChart.data.labels.length >= 10) {
+                        queueChart.data.labels.shift();
+                        queueChart.data.datasets[0].data.shift();
+                    }
+
+                    queueChart.data.labels.push(timeLabel);
+                    queueChart.data.datasets[0].data.push(payload.queue_length || 0);
+                    queueChart.update();
+
+                    // Salva storico
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        labels: queueChart.data.labels,
+                        data: queueChart.data.datasets[0].data
+                    }));
+
+                    // Aggiorna stato casse (10 casse come previsto)
+                    if (Array.isArray(payload.casse) && payload.casse.length === 10) {
+                        cashChart.data.datasets[0].data = payload.casse;
+                        cashChart.update();
+                    }
                 }
             } catch (e) {
-                console.error("Errore nel parsing:", e);
+                console.error("❌ Errore parsing:", e);
             }
-        });
+        };
 
-        // Funzione per aggiornare i dati nel grafico
-        function updateStoreData(storeName, data) {
-            const queueLength = data.queue_length || 0;
-            const estimatedTime = data.estimated_time || 0;
-            const casse = data.casse || [];
+        ws.onerror = (error) => {
+            console.error('❌ Errore WebSocket:', error);
+        };
 
-            // Aggiorna il numero di persone in coda
-            document.getElementById('count').textContent = queueLength;
-            document.getElementById('time').textContent = estimatedTime;
-
-            // Aggiorna il grafico della coda
-            const now = new Date();
-            const label = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-            if (queueChart.data.labels.length >= 10) {
-                queueChart.data.labels.shift();
-                queueChart.data.datasets[0].data.shift();
-            }
-            queueChart.data.labels.push(label);
-            queueChart.data.datasets[0].data.push(queueLength);
-            queueChart.update();
-
-            // Aggiorna il grafico delle casse
-            if (casse.length === 10) {
-                cashChart.data.datasets[0].data = casse;
-                cashChart.update();
-            }
-
-            console.log(`Grafici aggiornati per ${storeName}:`, data);
-        }
-
-        client.on('error', err => {
-            console.error('MQTT error:', err.message);
-        });
-
-    const ws = new WebSocket('ws://localhost:3000');
-
-    ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        console.log("Messaggio WebSocket:", msg);
-
-        const { topic, data } = msg;
-
-        if (topic === 'progetto/famila_tdm') {
-        const payload = JSON.parse(data);
-        document.getElementById('count').textContent = payload.queue_length;
-        document.getElementById('time').textContent = payload.estimated_time;
-        // Aggiorna i grafici come hai già fatto...
-        }
-    };
-
-
+        ws.onclose = () => {
+            console.log('❎ WebSocket disconnesso');
+        };
     </script>
 </body>
 </html>
