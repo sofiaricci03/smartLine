@@ -6,7 +6,6 @@ Misura coda alle casse con **ESP32 + sensori HC‑SR04** e visualizzazione via *
 - Pubblicazione **1 Hz** su broker pubblico, con **retain** per avere subito l’ultimo stato.
 - Dashboard con **storico**, **barre per cassa**, e **tempo stimato per cassa** (2 min/persona)   visualizzato con **card + progress bar**.
 - Supporto **multi‑sensore**: 5 casse con un solo ESP32 (un HC‑SR04 per cassa).
-
 ---
 
 ### Versione Multi sensore / 5 casse (stesso ESP32)
