@@ -40,11 +40,17 @@ https://wokwi.com/projects/437823757698406401
 
 - Avvia ▶ e apri il **Serial Monitor**: 
 
+![Screenshot avvio simulazione](assets/startsimulation.png)
+
 esempio output nel terminale:
   ```
   q_tot=9 | casse: 1 2 3 0 3 | eta[min]: 2.0 4.0 6.0 0.0 6.0 | dist: 60 110 170 40 230
   ```
 Essendo una demo su Wokwi il sensore ad ultrasuoni non misura realmente la distanza, possiamo farlo manualmente muovendo lo slider distance.
+
+![Screenshot avvio simulazione](assets/ultrasoundmod.png)
+
+
 
 ### 2) Dashboard web
 Nella root del progetto Smartline/
