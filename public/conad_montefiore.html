@@ -49,12 +49,18 @@
     </head>
     <body>
     <header>
-        <img src="../assets/logosmartiline.png" alt="Logo" class="logo" />
+        <a href="index.html">
+            <img src="../assets/logo.png" alt="Logo" class="logo" />
+        </a>
         <h1>Conad Montefiore – Stato della Coda</h1>
-        <div class="status" id="connStatus"><span class="dot" id="connDot"></span><span id="connText">Connessione…</span></div>
     </header>
 
     <main>
+        <div class="status" id="connStatus"> 
+            <span class="dot" id="connDot"></span> 
+            <span id="connText">Connessione…</span>
+        </div>
+
         <div class="stat">Persone in coda: <span id="count">0</span></div>
         <div class="stat">Tempo stimato (cassa peggiore): <span id="time">0</span> minuti</div>
 
@@ -164,7 +170,7 @@
 
     client.on('connect', () => {
         elDot.classList.remove('warn','err'); elDot.classList.add('ok');
-        elText.textContent = 'Connesso (in ascolto)…';
+        elText.textContent = 'Connesso';
         client.subscribe(topic, { qos: 0 });
     });
 
@@ -208,7 +214,7 @@
 
         // Aggiorna storico linea
         const now = new Date();
-        const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         pushPoint(queueChart, label, q, MAX_POINTS);
 
         // Aggiorna barre casse (pad a 10)
