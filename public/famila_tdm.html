@@ -4,26 +4,78 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Famila Torre del Moro - Stato Coda</title>
+
     <link rel="stylesheet" href="../assets/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <style>
+        .status { display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; }
+        .dot { width:8px; height:8px; border-radius:999px; background:#999; display:inline-block; }
+        .ok { background:#10b981 !important; } .warn { background:#f59e0b !important; } .err { background:#ef4444 !important; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+        /* ETA cards */
+        .eta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 6px;
+        }
+        .card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        .card h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display:flex; align-items:center; gap:6px; }
+        .meta { font-size: 12px; color: #555; }
+        .badge {
+        display: inline-block; font-size: 11px;
+        padding: 2px 8px; border-radius: 999px; color: #111; background: #eef2ff;
+        }
+        .badge.ok   { background:#dcfce7; }   /* verde */
+        .badge.warn { background:#fef9c3; }   /* giallo */
+        .badge.err  { background:#fee2e2; }   /* rosso */
+
+        .bar { height: 8px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin-top:8px; }
+        .bar > span {
+        display:block; height:100%; width:0;
+        background: linear-gradient(90deg, #10b981, #f59e0b 60%, #ef4444 100%);
+        transition: width .3s ease;
+        }
+    </style>
+    </head>
+    <body>
     <header>
         <a href="index.html">
             <img src="../assets/logo.png" alt="Logo" class="logo" />
         </a>
-        <h1>Famila TDM – Stato della Coda</h1>
+        <h1>Famila Torre del Moro – Stato della Coda</h1>
     </header>
 
     <main>
+        <div class="status" id="connStatus"> 
+            <span class="dot" id="connDot"></span> 
+            <span id="connText">Connessione…</span>
+        </div>
+
         <div class="stat">Persone in coda: <span id="count">0</span></div>
-        <div class="stat">Tempo stimato: <span id="time">0</span> minuti</div>
+        <div class="stat">Tempo stimato (cassa peggiore): <span id="time">0</span> minuti</div>
+
+        <div class="mono" style="margin:8px 0 16px">
+        Topic: <span id="topicLbl">progetto/famila_tdm/stato</span>
+        </div>
 
         <h3>Andamento storico della coda</h3>
         <canvas id="queueChart" height="100"></canvas>
 
         <h3>Stato casse (persone in fila per cassa)</h3>
         <canvas id="cashChart" height="150"></canvas>
+
+        <h3>Tempo stimato per cassa</h3>
+        <div id="etaGrid" class="eta-grid"></div>
     </main>
 
     <footer>
@@ -31,127 +83,202 @@
     </footer>
 
     <script>
-        const topic = 'progetto/famila_tdm';
-        const storageKey = 'queueHistory_famila_tdm';
+    // -------- CONFIG --------
+    const topic = 'progetto/famila_tdm/stato';
+    const storageKey = 'queueHistory_famila_tdm';
+    const MAX_POINTS = 60;
 
-        const queueCtx = document.getElementById('queueChart').getContext('2d');
-        const cashCtx = document.getElementById('cashChart').getContext('2d');
+    // -------- UI refs --------
+    const elCount = document.getElementById('count');
+    const elTime  = document.getElementById('time');
+    const elTopic = document.getElementById('topicLbl');
+    const elDot   = document.getElementById('connDot');
+    const elText  = document.getElementById('connText');
+    elTopic.textContent = topic;
 
-        // Grafico storico code
-        const queueChart = new Chart(queueCtx, {
-            type: 'line',
-            data: { labels: [], datasets: [{
-                label: 'Persone in Coda',
-                data: [],
-                backgroundColor: 'rgba(0,191,166,0.2)',
-                borderColor: '#00bfa6',
-                borderWidth: 2,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 3,
-                pointBackgroundColor: '#00bfa6'
-            }] },
-            options: {
-                scales: { 
-                    x: { ticks: { color: '#555' } }, 
-                    y: { beginAtZero: true, ticks: { color: '#555' } } 
-                },
-                plugins: { legend: { labels: { color: '#333' } } }
-            }
-        });
+    // -------- Charts --------
+    const queueCtx = document.getElementById('queueChart').getContext('2d');
+    const cashCtx  = document.getElementById('cashChart').getContext('2d');
 
-        // Carica eventuale storico dal localStorage
+    const queueChart = new Chart(queueCtx, {
+        type: 'line',
+        data: { labels: [], datasets: [{
+        label: 'Persone in Coda',
+        data: [],
+        backgroundColor: 'rgba(0,191,166,0.2)',
+        borderColor: '#00bfa6',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true,
+        pointRadius: 2,
+        pointBackgroundColor: '#00bfa6'
+        }]},
+        options: {
+        responsive: true,
+        animation: false,
+        scales: {
+            x: { ticks: { color: '#555' } },
+            y: { beginAtZero: true, ticks: { color: '#555', precision: 0 } }
+        },
+        plugins: { legend: { labels: { color: '#333' } } }
+        }
+    });
+
+    const cashChart = new Chart(cashCtx, {
+        type: 'bar',
+        data: {
+        labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+        datasets: [{
+            label: 'Persone in fila',
+            data: Array(10).fill(0),
+            backgroundColor: '#00bfa6'
+        }]
+        },
+        options: {
+        responsive: true,
+        animation: false,
+        indexAxis: 'y',
+        scales: {
+            x: { beginAtZero: true, max: 10, ticks: { stepSize: 1, color: '#444' } },
+            y: { ticks: { color: '#444' } }
+        },
+        plugins: { legend: { display: false } }
+        }
+    });
+
+    // -------- Storico dal localStorage --------
+    (function loadHistory(){
         const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                queueChart.data.labels = parsed.labels;
-                queueChart.data.datasets[0].data = parsed.data;
-                queueChart.update();
-            } catch (e) {
-                console.error('Errore caricamento storico:', e);
-            }
+        if (!saved) return;
+        try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.labels) && Array.isArray(parsed.data)) {
+            queueChart.data.labels = parsed.labels.slice(-MAX_POINTS);
+            queueChart.data.datasets[0].data = parsed.data.slice(-MAX_POINTS);
+            queueChart.update();
+        }
+        } catch {}
+    })();
+
+    // -------- MQTT via WSS --------
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+        clientId: 'dashboard-' + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(16).slice(2)),
+        keepalive: 30,
+        clean: true,
+        reconnectPeriod: 2000
+    });
+
+    client.on('connect', () => {
+        elDot.classList.remove('warn','err'); elDot.classList.add('ok');
+        elText.textContent = 'Connesso';
+        client.subscribe(topic, { qos: 0 });
+    });
+
+    client.on('reconnect', () => {
+        elDot.classList.remove('ok','err'); elDot.classList.add('warn');
+        elText.textContent = 'Riconnessione…';
+    });
+
+    client.on('error', () => {
+        elDot.classList.remove('ok','warn'); elDot.classList.add('err');
+        elText.textContent = 'Errore MQTT';
+    });
+
+    client.on('close', () => {
+        elDot.classList.remove('ok'); elDot.classList.add('warn');
+        elText.textContent = 'Disconnesso (ritento)…';
+    });
+
+    client.on('message', (t, message) => {
+        if (t !== topic) return;
+        let payload;
+        try { payload = JSON.parse(message.toString()); }
+        catch { return; }
+
+        const q = toNumber(payload.queue_length, 0);
+
+        // Array persone per cassa (padderemo a 10 per il grafico)
+        const casseArr = Array.isArray(payload.casse) ? payload.casse.map(v => toNumber(v, 0)) : [];
+
+        // ETA per cassa (2 min/persona se non c'è nel payload)
+        const etaArr = Array.isArray(payload.casse_eta_min)
+        ? payload.casse_eta_min.map(v => toNumber(v, 0))
+        : casseArr.map(v => v * 2);
+
+        // KPI: peggiore tra le casse
+        const worstEta = etaArr.length ? Math.max(...etaArr) : 0;
+
+        // Aggiorna KPI
+        elCount.textContent = q;
+        elTime.textContent  = worstEta;
+
+        // Aggiorna storico linea
+        const now = new Date();
+        const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        pushPoint(queueChart, label, q, MAX_POINTS);
+
+        // Aggiorna barre casse (pad a 10)
+        if (casseArr.length) {
+        const arr = casseArr.slice(0, 10);
+        while (arr.length < 10) arr.push(0);
+        cashChart.data.datasets[0].data = arr;
+        cashChart.update('none');
         }
 
-        // Grafico stato casse (10 casse come nel firmware)
-        const cashChart = new Chart(cashCtx, {
-            type: 'bar',
-            data: {
-                labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
-                datasets: [{ 
-                    label: 'Persone in fila', 
-                    data: Array(10).fill(0), 
-                    backgroundColor: '#00bfa6' 
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                scales: {
-                    x: { beginAtZero: true, max: 6, ticks: { stepSize: 1, color: '#444' } },
-                    y: { ticks: { color: '#444' } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
+        // Render ETA cards
+        renderEtaGrid(casseArr, etaArr);
 
-        // WebSocket per ricevere dati in tempo reale
-        const ws = new WebSocket('ws://localhost:3000');
+        // Salva storico
+        saveHistory(queueChart);
+    });
 
-        ws.onopen = () => {
-            console.log('✅ WebSocket connesso');
-        };
+    // -------- Util --------
+    function toNumber(val, fallback = 0) {
+        const n = Number(val);
+        return Number.isFinite(n) ? n : fallback;
+    }
+    function pushPoint(chart, label, value, maxPoints) {
+        const L = chart.data.labels;
+        const D = chart.data.datasets[0].data;
+        L.push(label); D.push(value);
+        if (L.length > maxPoints) { L.shift(); D.shift(); }
+        chart.update('none');
+    }
+    function saveHistory(chart) {
+        try {
+        localStorage.setItem(storageKey, JSON.stringify({
+            labels: chart.data.labels,
+            data: chart.data.datasets[0].data
+        }));
+        } catch {}
+    }
 
-        ws.onmessage = (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                console.log("📥 Messaggio WebSocket ricevuto:", msg);
+    function renderEtaGrid(casseArr, etaArr) {
+        const grid = document.getElementById('etaGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
 
-                const { topic: msgTopic, data } = msg;
+        const n = Math.min(10, Math.max(casseArr.length, etaArr.length));
+        const maxEta = Math.max(1, ...etaArr.map(x => Number(x) || 0)); // per scalare le barre
 
-                if (msgTopic === topic) {
-                    const payload = JSON.parse(data);
-                    
-                    // Aggiorna contatori
-                    document.getElementById('count').textContent = payload.queue_length || 0;
-                    document.getElementById('time').textContent = payload.estimated_time || 0;
+        for (let i = 0; i < n; i++) {
+        const persone = Number(casseArr[i] ?? 0) || 0;
+        const min     = Number(etaArr[i]   ?? persone * 2) || 0;
 
-                    // Aggiorna grafico storico coda
-                    const now = new Date();
-                    const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+        // classi semaforo
+        const cls = min <= 4 ? 'ok' : (min <= 8 ? 'warn' : 'err');
+        const widthPct = Math.max(5, Math.min(100, Math.round(min / maxEta * 100))); // min 5% per visibilità
 
-                    if (queueChart.data.labels.length >= 10) {
-                        queueChart.data.labels.shift();
-                        queueChart.data.datasets[0].data.shift();
-                    }
-
-                    queueChart.data.labels.push(timeLabel);
-                    queueChart.data.datasets[0].data.push(payload.queue_length || 0);
-                    queueChart.update();
-
-                    // Salva storico
-                    localStorage.setItem(storageKey, JSON.stringify({
-                        labels: queueChart.data.labels,
-                        data: queueChart.data.datasets[0].data
-                    }));
-
-                    // Aggiorna stato casse (10 casse come previsto)
-                    if (Array.isArray(payload.casse) && payload.casse.length === 10) {
-                        cashChart.data.datasets[0].data = payload.casse;
-                        cashChart.update();
-                    }
-                }
-            } catch (e) {
-                console.error("❌ Errore parsing:", e);
-            }
-        };
-
-        ws.onerror = (error) => {
-            console.error('❌ Errore WebSocket:', error);
-        };
-
-        ws.onclose = () => {
-            console.log('❎ WebSocket disconnesso');
-        };
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <h4>Cassa ${i+1} <span class="badge ${cls}">~${min} min</span></h4>
+            <div class="meta">${persone} ${persone === 1 ? 'persona' : 'persone'}</div>
+            <div class="bar"><span style="width:${widthPct}%"></span></div>
+        `;
+        grid.appendChild(card);
+        }
+    }
     </script>
 </body>
 </html>

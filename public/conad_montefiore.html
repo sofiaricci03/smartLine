@@ -127,7 +127,7 @@
     const cashChart = new Chart(cashCtx, {
         type: 'bar',
         data: {
-        labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+        labels: Array.from({ length: 5 }, (_, i) => `Cassa ${i + 1}`),
         datasets: [{
             label: 'Persone in fila',
             data: Array(10).fill(0),
@@ -139,7 +139,7 @@
         animation: false,
         indexAxis: 'y',
         scales: {
-            x: { beginAtZero: true, max: 10, ticks: { stepSize: 1, color: '#444' } },
+            x: { beginAtZero: true, max: 5, ticks: { stepSize: 1, color: '#444' } },
             y: { ticks: { color: '#444' } }
         },
         plugins: { legend: { display: false } }
@@ -197,7 +197,7 @@
 
         const q = toNumber(payload.queue_length, 0);
 
-        // Array persone per cassa (padderemo a 10 per il grafico)
+        // Array persone per cassa 
         const casseArr = Array.isArray(payload.casse) ? payload.casse.map(v => toNumber(v, 0)) : [];
 
         // ETA per cassa (2 min/persona se non c'è nel payload)
@@ -217,10 +217,10 @@
         const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         pushPoint(queueChart, label, q, MAX_POINTS);
 
-        // Aggiorna barre casse (pad a 10)
+        // Aggiorna barre casse (pad a 5)
         if (casseArr.length) {
-        const arr = casseArr.slice(0, 10);
-        while (arr.length < 10) arr.push(0);
+        const arr = casseArr.slice(0, 5);
+        while (arr.length < 5) arr.push(0);
         cashChart.data.datasets[0].data = arr;
         cashChart.update('none');
         }

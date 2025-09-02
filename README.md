@@ -20,7 +20,7 @@ Misura coda alle casse con **ESP32 + sensori HC‑SR04** e visualizzazione via *
 
 ---
 
-## 🧱 Architettura
+##  Architettura
 
 ```
 [HC‑SR04 x5] → [ESP32] → (MQTT:1883) → [broker.hivemq.com]
@@ -30,8 +30,26 @@ Misura coda alle casse con **ESP32 + sensori HC‑SR04** e visualizzazione via *
 
 ---
 
+### NOTA IMPORTANTE 
+ Per la simulazione del progetto SmartLine in configurazione multi-store, che prevede il monitoraggio delle code alle casse di tre supermercati distinti, sarebbe necessario disporre di tre unità ESP32, ciascuna collegata ai propri sensori a ultrasuoni (HC-SR04) e configurata per pubblicare i dati sul rispettivo topic MQTT (uno per ogni punto vendita).
 
-## 🚀 Come provare SmartLine
+In ambiente reale ciò riflette l’architettura distribuita prevista, nella quale ogni negozio dispone del proprio dispositivo di misura indipendente.
+
+Tuttavia, nell’ambiente di simulazione Wokwi, la realizzazione di tale scenario richiederebbe la creazione di tre progetti separati, uno per ciascun supermercato, così da associare a ogni topic il proprio ESP32 virtuale. La limitazione principale risiede nel fatto che la versione gratuita di Wokwi consente la compilazione e l’esecuzione di un solo progetto alla volta, rendendo quindi non attuabile la simulazione contemporanea dei tre supermercati.
+
+## Attualmente SmartLine risulta pienamente funzionante per il topic conad_montefiore, mentre per i supermercati famila_tdm e famila_gambettola rimane già predisposto il codice e le relative dashboard:
+
+ wokwi: 
+progetto/famila_tdm/stato
+progetto/famila_gambettola/stato
+
+VSC:
+smartline/public/famila_tdm.html
+smartline/public/famila_gambettola.html
+
+---
+
+##  Come provare SmartLine
 
 ### 1) ESP32 su Wokwi
 navigare sulla repository Wokwi 
@@ -51,7 +69,6 @@ Essendo una demo su Wokwi il sensore ad ultrasuoni non misura realmente la dista
 ![Screenshot avvio simulazione](assets/ultrasoundmod.png)
 
 
-
 ### 2) Dashboard web
 Nella root del progetto Smartline/
 
@@ -68,6 +85,10 @@ Nella root del progetto Smartline/
 ### 3) Simulazione
 - In Wokwi **clicca ogni HC‑SR04** e muovi lo **slider distance**: ogni **~50 cm** aumenta di **1 persona** quella cassa.
 - Nella dashboard: barre, card ETA e KPI si aggiornano in tempo reale.
+
+
+le dashboard web (conad.html, famila_tdm.html, famila_gambettola.html) sono già pronte e configurate per sottoscriversi al relativo topic.
+
 
 ---
 
@@ -108,7 +129,7 @@ In `wokwi/diagram.json`, ogni HC‑SR04 ha un `attrs.distance` impostato (es. 60
 
 ---
 
-## 🖥️ Dashboard (Smartline/conad.html)
+##  Dashboard (Smartline/conad_montefiore.html)
 
 Tecnologie:
 - **mqtt.js** (client MQTT via WSS)
@@ -137,32 +158,16 @@ const uint8_t AVG_SAMPLES   = 5;     // media misure
 
 ---
 
-## 🧰 Debug / Probe
+##  Troubleshooting
 
-A disposizione uno sketch `probe.cpp` per testare i 5 sensori **senza MQTT**:
-- Stampa `Sx: OK d=…` oppure `FAIL` (timeout).
-- Utile per verificare pin e distanze iniziali prima di passare al firmware principale.
-
----
-
-## 🧩 Troubleshooting
-
+ # possibili errori all'avvio del progetto e relative correzioni:
 - **`distance_cm: -1` o “FAIL” nel probe** → timeout: controlla **ECHO/TRIG/VCC/GND** e che in `diagram.json` ci siano le **distanze iniziali**.
 - **Dashboard non si aggiorna**:
   - Topic identico (`progetto/conad_montefiore/stato`)
   - La rete non deve bloccare **WSS 8884** (se serve, provare da rete diversa).
 - **Valori strani con 5 sensori**:
   - Testa col **probe** per isolare il sensore che non legge.
-  - I pin **34/35/36/39** sono *input-only* → ottimi per **ECHO**.
-
----
-
-## 🗺️ Prossimi step
-
-- Aggiungere altri negozi (topic diversi) e **index** multi-store.
-- Persistenza storica lato web (IndexedDB) o backend semplice (es. Supabase/Mongo).
-- Modello **dinamico di servizio** per cassa (tempi variabili invece di 2 min fissi).
-- Allarme/notification se una cassa supera soglia (es. >10 min).
+  - I pin **34/35/36/39** sono *input-only* quindi **ECHO**.
 
 ---
 
