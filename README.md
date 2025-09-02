@@ -39,9 +39,13 @@ Tuttavia, nell’ambiente di simulazione Wokwi, la realizzazione di tale scenari
 
 ## Attualmente SmartLine risulta pienamente funzionante per il topic conad_montefiore, mentre per i supermercati famila_tdm e famila_gambettola rimane già predisposto il codice e le relative dashboard:
 
- wokwi: 
+ # wokwi 
 progetto/famila_tdm/stato
+ https://wokwi.com/projects/440991320796111873
+
 progetto/famila_gambettola/stato
+https://wokwi.com/projects/440993153187315713
+
 
 VSC:
 smartline/public/famila_tdm.html
@@ -49,10 +53,10 @@ smartline/public/famila_gambettola.html
 
 ---
 
-##  Come provare SmartLine
+##  Avvio SmartLine
 
 ### 1) ESP32 su Wokwi
-navigare sulla repository Wokwi 
+navigare sulla repository Wokwi al topic conad_montefiore:
 https://wokwi.com/projects/437823757698406401
 - Apri il progetto con **ESP32 DevKit v1** + **5 × HC‑SR04** (diagram già pronto).
 
