@@ -6,48 +6,11 @@
     <title>Famila Gambettola - Stato Coda</title>
 
     <link rel="stylesheet" href="../assets/style.css" />
+    <link rel="stylesheet" href="../assets/dashboard.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
-    <style>
-        .status { display:inline-flex; align-items:center; gap:8px; font-size:14px; padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; }
-        .dot { width:8px; height:8px; border-radius:999px; background:#999; display:inline-block; }
-        .ok { background:#10b981 !important; } .warn { background:#f59e0b !important; } .err { background:#ef4444 !important; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-
-        /* ETA cards */
-        .eta-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        margin-top: 6px;
-        }
-        .card {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 10px;
-        box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .card h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display:flex; align-items:center; gap:6px; }
-        .meta { font-size: 12px; color: #555; }
-        .badge {
-        display: inline-block; font-size: 11px;
-        padding: 2px 8px; border-radius: 999px; color: #111; background: #eef2ff;
-        }
-        .badge.ok   { background:#dcfce7; }   /* verde */
-        .badge.warn { background:#fef9c3; }   /* giallo */
-        .badge.err  { background:#fee2e2; }   /* rosso */
-
-        .bar { height: 8px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin-top:8px; }
-        .bar > span {
-        display:block; height:100%; width:0;
-        background: linear-gradient(90deg, #10b981, #f59e0b 60%, #ef4444 100%);
-        transition: width .3s ease;
-        }
-    </style>
-    </head>
-    <body>
+</head>
+<body>
     <header>
         <a href="index.html">
             <img src="../assets/logo.png" alt="Logo" class="logo" />
@@ -79,7 +42,7 @@
     </main>
 
     <footer>
-        SmartLine &copy; 2025 – Progetto universitario IoT
+        SmartLine 2025 – Progetto Embedded Iot by Tichy & Ricci
     </footer>
 
     <script>
@@ -127,7 +90,7 @@
     const cashChart = new Chart(cashCtx, {
         type: 'bar',
         data: {
-        labels: Array.from({ length: 10 }, (_, i) => `Cassa ${i + 1}`),
+        labels: Array.from({ length: 5 }, (_, i) => `Cassa ${i + 1}`),
         datasets: [{
             label: 'Persone in fila',
             data: Array(10).fill(0),
@@ -139,7 +102,7 @@
         animation: false,
         indexAxis: 'y',
         scales: {
-            x: { beginAtZero: true, max: 10, ticks: { stepSize: 1, color: '#444' } },
+            x: { beginAtZero: true, max: 5, ticks: { stepSize: 1, color: '#444' } },
             y: { ticks: { color: '#444' } }
         },
         plugins: { legend: { display: false } }
@@ -197,7 +160,7 @@
 
         const q = toNumber(payload.queue_length, 0);
 
-        // Array persone per cassa (padderemo a 10 per il grafico)
+        // Array persone per cassa 
         const casseArr = Array.isArray(payload.casse) ? payload.casse.map(v => toNumber(v, 0)) : [];
 
         // ETA per cassa (2 min/persona se non c'è nel payload)
@@ -217,10 +180,10 @@
         const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
         pushPoint(queueChart, label, q, MAX_POINTS);
 
-        // Aggiorna barre casse (pad a 10)
+        // Aggiorna barre casse (pad a 5)
         if (casseArr.length) {
-        const arr = casseArr.slice(0, 10);
-        while (arr.length < 10) arr.push(0);
+        const arr = casseArr.slice(0, 5);
+        while (arr.length < 5) arr.push(0);
         cashChart.data.datasets[0].data = arr;
         cashChart.update('none');
         }
