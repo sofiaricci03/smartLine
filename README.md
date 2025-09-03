@@ -41,10 +41,10 @@ Tuttavia, nell’ambiente di simulazione Wokwi, la realizzazione di tale scenari
 
  # wokwi 
 progetto/famila_tdm/stato
- https://wokwi.com/projects/440991320796111873
+ https://wokwi.com/projects/441058599481755649
 
 progetto/famila_gambettola/stato
-https://wokwi.com/projects/440993153187315713
+https://wokwi.com/projects/441058803889206273
 
 
 VSC:
@@ -57,7 +57,7 @@ smartline/public/famila_gambettola.html
 
 ### 1) ESP32 su Wokwi
 navigare sulla repository Wokwi al topic conad_montefiore:
-https://wokwi.com/projects/437823757698406401
+https://wokwi.com/projects/441058920754091009
 - Apri il progetto con **ESP32 DevKit v1** + **5 × HC‑SR04** (diagram già pronto).
 
 - Avvia ▶ e apri il **Serial Monitor**: 
@@ -71,6 +71,34 @@ esempio output nel terminale:
 Essendo una demo su Wokwi il sensore ad ultrasuoni non misura realmente la distanza, possiamo farlo manualmente muovendo lo slider distance.
 
 ![Screenshot avvio simulazione](assets/ultrasoundmod.png)
+
+##  Modifica valori da riga di comando (Serial Monitor)
+
+I valori delle variabili possono essere modificati direttamente tramite comandi sul **Serial Monitor** (baud 115200).  
+Questo permette di adattare il comportamento del sistema in tempo reale, senza ricompilare il firmware.
+
+### 📋 Comandi disponibili
+
+- Centimetri di distanza che corrispondono a 1 persona in coda 
+```text
+SET CM_PER_PERSON <valore>   # default: 50.0
+
+- Zona iniziale (in cm) da ignorare vicino alla cassa
+```text
+SET OFFSET_CM <valore>       # default: 0.0
+
+- Margine in cm per evitare che il conteggio oscilli vicino alle soglie
+```text
+SET HYSTERESIS_CM <valore>   # default: 5.0
+
+- Tempo medio di servizio per persona (in minuti)
+```text
+SET MIN_PER_PERSON <valore>  # default: 2.0
+
+- Mostrare i valori attuali di tutti i parametri
+
+```text
+SHOW
 
 
 ### 2) Dashboard web
